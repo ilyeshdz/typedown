@@ -1,7 +1,5 @@
 package lexer;
 
-import "core:fmt"
-
 Lexer :: struct {
 	input:         string,
 	position:      int,
@@ -47,13 +45,6 @@ lexer_get_previous_char :: proc(l: ^Lexer) -> rune {
 	return cast(rune)l.input[l.position - 1]
 }
 
-lexer_get_next_char :: proc(l: ^Lexer) -> rune {
-	if l.read_position >= len(l.input) {
-		return 0
-	}
-	return cast(rune)l.input[l.read_position]
-}
-
 lexer_next_token :: proc(l: ^Lexer) -> Token {
 	for l.ch == ' ' {
 		lexer_read_char(l)
@@ -71,11 +62,11 @@ lexer_next_token :: proc(l: ^Lexer) -> Token {
 		tok.text = ":"
 		lexer_read_char(l)
 	case '-':
-		if lexer_get_next_char(l) == ' ' {
+		if lexer_peek_char(l) == ' ' {
 			tok.kind = .Bullet
 			tok.text = "-"
 			lexer_read_char(l)
-		} else if lexer_get_next_char(l) == '-' {
+		} else if lexer_peek_char(l) == '-' {
 			if !l.within_steram {
 				tok.kind = .StreamStart
 				tok.text = "---"
