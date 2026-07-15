@@ -4,10 +4,13 @@ import "core:fmt"
 import "lexer"
 
 main :: proc() {
-    source := `schema: "my-custom-schema"
+    source := `---
+schema: "my-custom-schema"
 test: 10
 test2: 3.14
-    test3: test
+    test3:
+    	- hello world
+---
     `
 
     my_lexer := lexer.lexer_init(source);

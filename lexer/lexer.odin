@@ -1,4 +1,4 @@
-package lexer
+package lexer;
 
 import "core:fmt"
 
@@ -9,6 +9,7 @@ Lexer :: struct {
 	ch:            rune,
 	line:          int,
 	col:           int,
+	within_steram: bool
 }
 
 lexer_init :: proc(input: string) -> Lexer {
@@ -39,11 +40,18 @@ lexer_peek_char :: proc(l: ^Lexer) -> rune {
 	return cast(rune)l.input[l.read_position]
 }
 
-lexer_previous_char :: proc(l: ^Lexer) -> rune {
+lexer_get_previous_char :: proc(l: ^Lexer) -> rune {
 	if l.position == 0 || l.position > len(l.input) {
 		return 0
 	}
 	return cast(rune)l.input[l.position - 1]
+}
+
+lexer_get_next_char :: proc(l: ^Lexer) -> rune {
+	if l.read_position >= len(l.input) {
+		return 0
+	}
+	return cast(rune)l.input[l.read_position]
 }
 
 lexer_next_token :: proc(l: ^Lexer) -> Token {
@@ -63,9 +71,28 @@ lexer_next_token :: proc(l: ^Lexer) -> Token {
 		tok.text = ":"
 		lexer_read_char(l)
 	case '-':
-		tok.kind = .Hyphen
-		tok.text = "-"
-		lexer_read_char(l);
+		if lexer_get_next_char(l) == ' ' {
+			tok.kind = .Bullet
+			tok.text = "-"
+			lexer_read_char(l)
+		} else if lexer_get_next_char(l) == '-' {
+			if !l.within_steram {
+				tok.kind = .StreamStart
+				tok.text = "---"
+				l.within_steram = true
+			} else {
+				tok.kind = .StreamEnd
+				tok.text = "---"
+				l.within_steram = false
+			}
+			lexer_read_char(l)
+		} else {
+			tok.kind = .Hyphen
+			tok.text = "-"
+			lexer_read_char(l)
+		}
+		lexer_read_char(l)
+
 	case '\n', '\r':
 		tok.kind = .Newline
 		tok.text = "\n"

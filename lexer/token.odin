@@ -12,6 +12,9 @@ Token_Kind :: enum {
 	Dedent,
 	Eof,
 	Colon,
+	Bullet,
+	StreamStart,
+	StreamEnd,
 	Hyphen,
 	Newline,
 	Identifier
