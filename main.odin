@@ -15,11 +15,18 @@ test2: 3.14
 
     my_lexer := lexer.lexer_init(source);
 
+    tokens := [dynamic]lexer.Token{}
+    defer delete(tokens);
+
     for {
         tok := lexer.lexer_next_token(&my_lexer)
         if tok.kind == .Eof {
             break
         }
-        fmt.println(tok)
+        append(&tokens, tok)
+    }
+
+    for token in tokens {
+        fmt.println(token)
     }
 }

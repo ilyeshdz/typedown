@@ -66,17 +66,18 @@ lexer_next_token :: proc(l: ^Lexer) -> Token {
 			tok.kind = .Bullet
 			tok.text = "-"
 			lexer_read_char(l)
-		} else if lexer_peek_char(l) == '-' {
+		} else if lexer_peek_char(l) == '-' && l.input[l.read_position+1] == '-' {
 			tok.kind = .StreamStart if !l.within_stream else .StreamEnd
 			l.within_stream = !l.within_stream
 			tok.text = "---";
-			lexer_read_char(l)
+			for x := 0; x < 3; x += 1 {
+				lexer_read_char(l)
+			}
 		} else {
 			tok.kind = .Hyphen
 			tok.text = "-"
 			lexer_read_char(l)
 		}
-		lexer_read_char(l)
 
 	case '\n', '\r':
 		tok.kind = .Newline
