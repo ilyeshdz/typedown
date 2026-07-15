@@ -67,15 +67,9 @@ lexer_next_token :: proc(l: ^Lexer) -> Token {
 			tok.text = "-"
 			lexer_read_char(l)
 		} else if lexer_peek_char(l) == '-' {
-			if !l.within_steram {
-				tok.kind = .StreamStart
-				tok.text = "---"
-				l.within_steram = true
-			} else {
-				tok.kind = .StreamEnd
-				tok.text = "---"
-				l.within_steram = false
-			}
+			tok.kind = .StreamStart if !l.within_steram else .StreamEnd
+			l.within_steram = !l.within_steram
+			tok.text = "---";
 			lexer_read_char(l)
 		} else {
 			tok.kind = .Hyphen
