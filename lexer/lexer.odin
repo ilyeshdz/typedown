@@ -7,7 +7,7 @@ Lexer :: struct {
 	ch:            rune,
 	line:          int,
 	col:           int,
-	within_steram: bool
+	within_stream: bool
 }
 
 lexer_init :: proc(input: string) -> Lexer {
@@ -67,8 +67,8 @@ lexer_next_token :: proc(l: ^Lexer) -> Token {
 			tok.text = "-"
 			lexer_read_char(l)
 		} else if lexer_peek_char(l) == '-' {
-			tok.kind = .StreamStart if !l.within_steram else .StreamEnd
-			l.within_steram = !l.within_steram
+			tok.kind = .StreamStart if !l.within_stream else .StreamEnd
+			l.within_stream = !l.within_stream
 			tok.text = "---";
 			lexer_read_char(l)
 		} else {
