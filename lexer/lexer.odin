@@ -31,11 +31,11 @@ lexer_read_char :: proc(l: ^Lexer) {
 	l.col += 1
 }
 
-lexer_peek_char :: proc(l: ^Lexer) -> rune {
-	if l.read_position >= len(l.input) {
+lexer_peek_ahead :: proc(l: ^Lexer, offset: int = 0) -> rune {
+	if l.read_position + offset >= len(l.input) {
 		return 0
 	}
-	return cast(rune)l.input[l.read_position]
+	return cast(rune)l.input[l.read_position + offset]
 }
 
 lexer_get_previous_char :: proc(l: ^Lexer) -> rune {
@@ -62,11 +62,11 @@ lexer_next_token :: proc(l: ^Lexer) -> Token {
 		tok.text = ":"
 		lexer_read_char(l)
 	case '-':
-		if lexer_peek_char(l) == ' ' {
+		if lexer_peek_ahead(l) == ' ' {
 			tok.kind = .Bullet
 			tok.text = "-"
 			lexer_read_char(l)
-		} else if lexer_peek_char(l) == '-' && l.input[l.read_position+1] == '-' {
+		} else if lexer_peek_ahead(l) == '-' && lexer_peek_ahead(l, 1) == '-' {
 			tok.kind = .StreamStart if !l.within_stream else .StreamEnd
 			l.within_stream = !l.within_stream
 			tok.text = "---";
