@@ -1,4 +1,4 @@
-package lexer;
+package lexer
 
 Token :: struct {
 	kind: Token_Kind,

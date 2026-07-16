@@ -1,6 +1,4 @@
-package lexer;
-
-import "core:fmt"
+package lexer
 
 Lexer :: struct {
 	input:         string,
@@ -9,7 +7,8 @@ Lexer :: struct {
 	ch:            rune,
 	line:          int,
 	col:           int,
-	within_stream: bool
+	within_stream: bool,
+	indent_stack:  [dynamic]int,
 }
 
 lexer_init :: proc(input: string) -> Lexer {
@@ -58,12 +57,15 @@ lexer_next_token :: proc(l: ^Lexer) -> Token {
 
 	switch l.ch {
 	case 0:
+		// handle end of file
 		tok.kind = .Eof
 	case ':':
+		// handle colon
 		tok.kind = .Colon
 		tok.text = ":"
 		lexer_read_char(l)
 	case '-':
+		// handle both bullets and hyphens as well as stream start/end
 		if lexer_peek_ahead(l) == ' ' {
 			tok.kind = .Bullet
 			tok.text = "-"
@@ -71,7 +73,7 @@ lexer_next_token :: proc(l: ^Lexer) -> Token {
 		} else if lexer_peek_ahead(l) == '-' && lexer_peek_ahead(l, 1) == '-' {
 			tok.kind = .StreamStart if !l.within_stream else .StreamEnd
 			l.within_stream = !l.within_stream
-			tok.text = "---";
+			tok.text = "---"
 			for x := 0; x < 3; x += 1 {
 				lexer_read_char(l)
 			}
@@ -82,20 +84,23 @@ lexer_next_token :: proc(l: ^Lexer) -> Token {
 		}
 
 	case '\n', '\r':
+		// handle newlines & indentation
 		tok.kind = .Newline
 		tok.text = "\n"
-		lexer_read_char(l);
+		lexer_read_char(l)
+
 	case '"', '\'':
+		// handle strings
 		start_position := l.read_position
 		lexer_read_char(l)
 		tok.kind = .String
-		fmt.println("input ", l.input, " start_position ", start_position, " position ", l.position)
 		for l.ch != '"' && l.ch != '\'' {
 			lexer_read_char(l)
 		}
 		tok.text = l.input[start_position:l.position]
 		lexer_read_char(l)
-	case '0'..= '9':
+	case '0' ..= '9':
+		// handle both integers and floats
 		start := l.position
 		is_float := false
 		for l.ch != ' ' && l.ch != ':' && l.ch != '\n' && l.ch != '\r' {
@@ -107,8 +112,6 @@ lexer_next_token :: proc(l: ^Lexer) -> Token {
 		tok.kind = .Float if is_float else .Integer
 		tok.text = l.input[start:l.position]
 	case:
-		// handle both identifiers and numbers
-
 		start := l.position
 		tok.kind = .Identifier
 		for l.ch != ' ' && l.ch != ':' && l.ch != '\n' && l.ch != '\r' {
