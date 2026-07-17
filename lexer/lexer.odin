@@ -1,5 +1,7 @@
 package lexer
 
+import "core:fmt"
+
 Lexer :: struct {
 	input:         string,
 	position:      int,
@@ -115,6 +117,7 @@ lexer_next_token :: proc(l: ^Lexer) -> Token {
 		tok.kind = .Newline
 		tok.text = "\n"
 		l.line += 1
+		l.col = 0
 		l.is_new_line = true
 		lexer_read_char(l)
 
@@ -144,11 +147,10 @@ lexer_next_token :: proc(l: ^Lexer) -> Token {
 	case:
 		start := l.position
 		tok.kind = .Identifier
-		for l.ch != ' ' && l.ch != ':' && l.ch != '\n' && l.ch != '\r' {
+		for l.ch != ' ' && l.ch != ':' && l.ch != '\n' && l.ch != '\r' && l.ch != '\t' {
 			lexer_read_char(l)
 		}
 		tok.text = l.input[start:l.position]
-		lexer_read_char(l)
 	}
 
 	return tok

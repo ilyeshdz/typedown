@@ -45,37 +45,46 @@ parser_parse :: proc(p: ^Parser, allocator := context.allocator) -> (document: Y
 		case .Parser_Expect_Newline:
 			parser_expect(p, .Newline)
 			p.state = .Parser_Expect_Key
-		case .Parser_Expect_Key:
-			if p.current.kind == .StreamEnd {
-				p.state = .Parser_End
-				continue
-			}
-			p.current_key = p.current.text
-			parser_expect(p, .Identifier)
-			p.state = .Parser_Expect_Colon
-		case .Parser_Expect_Colon:
-			parser_expect(p, .Colon)
-			p.state = .Parser_Expect_Value
 		case .Parser_Expect_Value:
 			if p.current.kind == .Eof || p.current.kind == .StreamEnd {
 				p.state = .Parser_End
-			} else if p.current.kind == .Indent {
-				fmt.println("something");
-				append(&p.indent_stack, p.indent_stack[len(p.indent_stack) - 1] + 1)
-			} else if p.current.kind == .Dedent {
-				append(&p.indent_stack, p.indent_stack[len(p.indent_stack) - 1] - 1)
+			} else if p.current.kind == .Newline {
+				p.state = .Parser_Expect_Newline
 			} else {
 				parser_expect(p, .Identifier, .String, .Integer, .Float)
-				p.state = .Parser_Expect_Newline
+
+				p.current_key = p.current.text
 				key_node := new(YamlNode)
 				key_node^ = YamlNode{.Scalar, ScalarNode{p.current_key, .String}}
 				value_node := new(YamlNode)
 				value_node^ = YamlNode{.Scalar, ScalarNode{p.previous.text, .String}}
 				pair := MappingPair{key_node, value_node}
 				append(&document.root.pairs, pair)
+
+				p.state = .Parser_Expect_Newline
 			}
+		case .Parser_Expect_Colon:
+			parser_expect(p, .Colon)
+			p.state = .Parser_Expect_Value
+		case .Parser_Expect_Key:
+			if p.current.kind == .Dedent {
+				parser_advance(p)
+				continue
+			}
+			if p.current.kind == .Indent {
+				parser_advance(p)
+				continue
+			}
+			if p.current.kind == .Eof || p.current.kind == .StreamEnd {
+				p.state = .Parser_End
+				continue
+			}
+
+			p.current_key = p.current.text
+			parser_expect(p, .Identifier)
+			p.state = .Parser_Expect_Colon
+
 		case .Parser_End:
-			fmt.println("parser finished")
 			break
 		}
 	}
@@ -87,7 +96,6 @@ parser_parse :: proc(p: ^Parser, allocator := context.allocator) -> (document: Y
 parser_advance :: proc(p: ^Parser) {
 	p.previous = p.current
 	p.current = lexer_package.lexer_next_token(p.lexer)
-	fmt.println(p.current)
 }
 
 parser_match :: proc(p: ^Parser, kind: lexer_package.Token_Kind) -> bool {
