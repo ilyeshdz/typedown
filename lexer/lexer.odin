@@ -85,6 +85,12 @@ lexer_next_token :: proc(l: ^Lexer) -> (tok: Token, err: yaml_error.YamlError) {
 
 	switch l.ch {
 	case 0:
+		if len(l.indent_stack) > 1 {
+			pop(&l.indent_stack)
+			tok.kind = .Dedent
+			tok.text = "dedent"
+			return
+		}
 		tok.kind = .Eof
 	case ':':
 		tok.kind = .Colon
@@ -96,6 +102,12 @@ lexer_next_token :: proc(l: ^Lexer) -> (tok: Token, err: yaml_error.YamlError) {
 			tok.text = "-"
 			lexer_read_char(l)
 		} else if lexer_peek_ahead(l) == '-' && lexer_peek_ahead(l, 1) == '-' {
+			if len(l.indent_stack) > 1 {
+				pop(&l.indent_stack)
+				tok.kind = .Dedent
+				tok.text = "dedent"
+				return
+			}
 			tok.kind = .StreamStart if !l.within_stream else .StreamEnd
 			l.within_stream = !l.within_stream
 			tok.text = "---"

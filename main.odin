@@ -9,7 +9,8 @@ import yaml_error "yaml_error"
 main :: proc() {
 	source := `---
 parent_key:
-	child_key: value
+	child_key:
+		test_it_out: value
 ---`
 
 	my_lexer := lexer.lexer_init(source)
