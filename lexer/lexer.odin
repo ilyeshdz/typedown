@@ -1,6 +1,6 @@
 package lexer
 
-import "core:fmt"
+import yaml_error "../yaml_error"
 
 Lexer :: struct {
 	input:         string,
@@ -50,14 +50,13 @@ lexer_get_previous_char :: proc(l: ^Lexer) -> rune {
 	return cast(rune)l.input[l.position - 1]
 }
 
-lexer_next_token :: proc(l: ^Lexer) -> Token {
+lexer_next_token :: proc(l: ^Lexer) -> (tok: Token, err: yaml_error.YamlError) {
 	if !l.is_new_line {
 		for l.ch == ' ' || l.ch == '\t' {
 			lexer_read_char(l)
 		}
 	}
 
-	tok: Token
 	tok.col = l.col
 	tok.line = l.line
 
@@ -75,26 +74,23 @@ lexer_next_token :: proc(l: ^Lexer) -> Token {
 			append(&l.indent_stack, leading_space)
 			tok.kind = .Indent
 			tok.text = "indent"
-			return tok
+			return
 		} else if leading_space < previous_indent {
 			pop(&l.indent_stack)
 			tok.kind = .Dedent
 			tok.text = "dedent"
-			return tok
+			return
 		}
 	}
 
 	switch l.ch {
 	case 0:
-		// handle end of file
 		tok.kind = .Eof
 	case ':':
-		// handle colon
 		tok.kind = .Colon
 		tok.text = ":"
 		lexer_read_char(l)
 	case '-':
-		// handle both bullets and hyphens as well as stream start/end
 		if lexer_peek_ahead(l) == ' ' {
 			tok.kind = .Bullet
 			tok.text = "-"
@@ -113,7 +109,6 @@ lexer_next_token :: proc(l: ^Lexer) -> Token {
 		}
 
 	case '\n', '\r':
-		// handle newlines & indentation
 		tok.kind = .Newline
 		tok.text = "\n"
 		l.line += 1
@@ -122,17 +117,25 @@ lexer_next_token :: proc(l: ^Lexer) -> Token {
 		lexer_read_char(l)
 
 	case '"', '\'':
-		// handle strings
+		quote := l.ch
 		start_position := l.read_position
 		lexer_read_char(l)
 		tok.kind = .String
-		for l.ch != '"' && l.ch != '\'' {
+		for l.ch != quote {
+			if l.ch == 0 {
+				err = yaml_error.LexerError {
+					kind    = .UnterminatedString,
+					message = "unterminated string literal",
+					line    = l.line,
+					col     = l.col,
+				}
+				return
+			}
 			lexer_read_char(l)
 		}
 		tok.text = l.input[start_position:l.position]
 		lexer_read_char(l)
 	case '0' ..= '9':
-		// handle both integers and floats
 		start := l.position
 		is_float := false
 		for l.ch != ' ' && l.ch != ':' && l.ch != '\n' && l.ch != '\r' {
@@ -153,5 +156,5 @@ lexer_next_token :: proc(l: ^Lexer) -> Token {
 		tok.text = l.input[start:l.position]
 	}
 
-	return tok
+	return
 }

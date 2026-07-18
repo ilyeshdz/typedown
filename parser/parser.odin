@@ -1,6 +1,7 @@
 package parser
 
 import lexer_package "../lexer"
+import yaml_error "../yaml_error"
 import "core:fmt"
 
 Parser :: struct {
@@ -11,63 +12,79 @@ Parser :: struct {
 	indent_stack: [dynamic]int,
 }
 
-parser_init :: proc(lexer: ^lexer_package.Lexer) -> Parser {
-	return Parser {
-		lexer,
-		lexer_package.lexer_next_token(lexer),
-		lexer_package.Token{},
-		"",
-		[dynamic]int{},
+parser_init :: proc(lexer: ^lexer_package.Lexer) -> (Parser, yaml_error.YamlError) {
+	p := Parser {
+		lexer        = lexer,
+		indent_stack = [dynamic]int{},
 	}
+	tok, err := lexer_package.lexer_next_token(lexer)
+	if err != nil {
+		return p, err
+	}
+	p.current = tok
+	return p, nil
 }
 
-parser_parse :: proc(p: ^Parser, allocator := context.allocator) -> (document: YamlDocument) {
+parser_parse :: proc(p: ^Parser, allocator := context.allocator) -> (document: YamlDocument, err: yaml_error.YamlError) {
 	context.allocator = allocator
 
 	document = YamlDocument{new(MappingNode)}
 	mapping := MappingNode{}
 
-	parser_expect(p, .StreamStart)
-	parse_mapping(p, &mapping)
+	err = parser_expect(p, .StreamStart)
+	if err != nil { return }
+
+	err = parse_mapping(p, &mapping)
+	if err != nil { return }
 
 	document.root = &mapping
 
 	return
 }
 
-parse_mapping :: proc(p: ^Parser, mapping: ^MappingNode) {
+parse_mapping :: proc(p: ^Parser, mapping: ^MappingNode) -> (err: yaml_error.YamlError) {
 	for {
-		skip_newlines(p)
+		err = skip_newlines(p)
+		if err != nil { return }
 		if p.current.kind == .Dedent || p.current.kind == .Eof || p.current.kind == .StreamEnd {
 			return
 		}
 
-		parser_expect(p, .Identifier)
+		err = parser_expect(p, .Identifier)
+		if err != nil { return }
 		key := new(YamlNode)
 		key^ = YamlNode{.Scalar, ScalarNode{p.previous.text, .String}}
-		parser_expect(p, .Colon)
+		err = parser_expect(p, .Colon)
+		if err != nil { return }
 
-		value := parse_value(p)
+		value: ^YamlNode
+		value, err = parse_value(p)
+		if err != nil { return }
 
 		append(&mapping.pairs, MappingPair{key, value})
 	}
 }
 
-parse_value :: proc(p: ^Parser) -> (node: ^YamlNode) {
-	skip_newlines(p)
+parse_value :: proc(p: ^Parser) -> (node: ^YamlNode, err: yaml_error.YamlError) {
+	err = skip_newlines(p)
+	if err != nil { return }
 
 	node = new(YamlNode)
 
 	if p.current.kind == .Indent {
-		parser_advance(p)
+		err = parser_advance(p)
+		if err != nil { return }
 		nested_mapping := MappingNode{}
-		parse_mapping(p, &nested_mapping)
-		parser_expect(p, .Dedent)
+		err = parse_mapping(p, &nested_mapping)
+		if err != nil { return }
+		err = parser_expect(p, .Dedent)
+		if err != nil { return }
 		node^ = YamlNode{.Mapping, MappingNode{nested_mapping.pairs}}
 		return
 	}
 
-	parser_expect(p, .Identifier, .String, .Float, .Integer)
+	err = parser_expect(p, .Identifier, .String, .Float, .Integer)
+	if err != nil { return }
 	scalar_type := ScalarType.String
 	if p.previous.kind == .Integer {
 		scalar_type = ScalarType.Integer
@@ -81,15 +98,22 @@ parse_value :: proc(p: ^Parser) -> (node: ^YamlNode) {
 
 // The helpers functions
 
-skip_newlines :: proc(p: ^Parser) {
+skip_newlines :: proc(p: ^Parser) -> (err: yaml_error.YamlError) {
 	for p.current.kind == .Newline {
-		parser_advance(p)
+		err = parser_advance(p)
+		if err != nil { return }
 	}
+	return
 }
 
-parser_advance :: proc(p: ^Parser) {
+parser_advance :: proc(p: ^Parser) -> (err: yaml_error.YamlError) {
 	p.previous = p.current
-	p.current = lexer_package.lexer_next_token(p.lexer)
+	tok, lexer_err := lexer_package.lexer_next_token(p.lexer)
+	if lexer_err != nil {
+		return lexer_err
+	}
+	p.current = tok
+	return
 }
 
 parser_match :: proc(p: ^Parser, kind: lexer_package.Token_Kind) -> bool {
@@ -100,13 +124,19 @@ parser_match :: proc(p: ^Parser, kind: lexer_package.Token_Kind) -> bool {
 	return false
 }
 
-parser_expect :: proc(p: ^Parser, kinds: ..lexer_package.Token_Kind) {
+parser_expect :: proc(p: ^Parser, kinds: ..lexer_package.Token_Kind) -> (err: yaml_error.YamlError) {
 	for k in kinds {
 		if parser_match(p, k) {
-			parser_advance(p)
+			err = parser_advance(p)
 			return
 		}
 	}
-	fmt.println("expected", kinds, "but got", p.current.kind)
-	panic("")
+
+	err = yaml_error.ParserError {
+		kind    = .ExpectedToken,
+		message = fmt.tprintf("expected %v but got %s", kinds, p.current.kind),
+		line    = p.current.line,
+		col     = p.current.col,
+	}
+	return
 }
