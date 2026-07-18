@@ -38,11 +38,7 @@ parser_parse :: proc(p: ^Parser, allocator := context.allocator) -> (document: Y
 parse_mapping :: proc(p: ^Parser, mapping: ^MappingNode) {
 	for {
 		skip_newlines(p)
-		if p.current.kind == .Indent ||
-		   p.current.kind == .Dedent ||
-		   p.current.kind == .Eof ||
-		   p.current.kind == .StreamEnd {
-			parser_advance(p)
+		if p.current.kind == .Dedent || p.current.kind == .Eof || p.current.kind == .StreamEnd {
 			return
 		}
 
@@ -51,31 +47,45 @@ parse_mapping :: proc(p: ^Parser, mapping: ^MappingNode) {
 		key^ = YamlNode{.Scalar, ScalarNode{p.previous.text, .String}}
 		parser_expect(p, .Colon)
 
-		if p.current.kind == .Newline {
-			break
-		}
-
-		parser_expect(p, .Identifier, .String, .Float, .Integer)
-		value := new(YamlNode)
-		scalar_type := ScalarType.String
-		if p.current.kind == .Integer {
-			scalar_type = ScalarType.Integer
-		} else if p.current.kind == .Float {
-			scalar_type = ScalarType.Float
-		}
-		value^ = YamlNode{.Scalar, ScalarNode{p.previous.text, scalar_type}}
+		value := parse_value(p)
 
 		append(&mapping.pairs, MappingPair{key, value})
 	}
 }
+
+parse_value :: proc(p: ^Parser) -> (node: ^YamlNode) {
+	skip_newlines(p)
+
+	node = new(YamlNode)
+
+	if p.current.kind == .Indent {
+		parser_advance(p)
+		nested_mapping := MappingNode{}
+		parse_mapping(p, &nested_mapping)
+		parser_expect(p, .Dedent)
+		node^ = YamlNode{.Mapping, MappingNode{nested_mapping.pairs}}
+		return
+	}
+
+	parser_expect(p, .Identifier, .String, .Float, .Integer)
+	scalar_type := ScalarType.String
+	if p.previous.kind == .Integer {
+		scalar_type = ScalarType.Integer
+	} else if p.previous.kind == .Float {
+		scalar_type = ScalarType.Float
+	}
+	node^ = YamlNode{.Scalar, ScalarNode{p.previous.text, scalar_type}}
+	return
+}
+
+
+// The helpers functions
 
 skip_newlines :: proc(p: ^Parser) {
 	for p.current.kind == .Newline {
 		parser_advance(p)
 	}
 }
-
-// The helpers functions
 
 parser_advance :: proc(p: ^Parser) {
 	p.previous = p.current
@@ -97,7 +107,6 @@ parser_expect :: proc(p: ^Parser, kinds: ..lexer_package.Token_Kind) {
 			return
 		}
 	}
-
 	fmt.println("expected", kinds, "but got", p.current.kind)
 	panic("")
 }
