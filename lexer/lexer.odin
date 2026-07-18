@@ -43,13 +43,6 @@ lexer_peek_ahead :: proc(l: ^Lexer, offset: int = 0) -> rune {
 	return cast(rune)l.input[l.read_position + offset]
 }
 
-lexer_get_previous_char :: proc(l: ^Lexer) -> rune {
-	if l.position == 0 || l.position > len(l.input) {
-		return 0
-	}
-	return cast(rune)l.input[l.position - 1]
-}
-
 lexer_next_token :: proc(l: ^Lexer) -> (tok: Token, err: yaml_error.YamlError) {
 	if !l.is_new_line {
 		for l.ch == ' ' || l.ch == '\t' {
