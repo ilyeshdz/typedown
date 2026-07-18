@@ -38,20 +38,17 @@ parser_parse :: proc(p: ^Parser, allocator := context.allocator) -> (document: Y
 parse_mapping :: proc(p: ^Parser, mapping: ^MappingNode) {
 	for {
 		skip_newlines(p)
-		if p.current.kind == .Indent || p.current.kind == .Dedent || p.current.kind == .Eof || p.current.kind == .StreamEnd {
+		if p.current.kind == .Indent ||
+		   p.current.kind == .Dedent ||
+		   p.current.kind == .Eof ||
+		   p.current.kind == .StreamEnd {
 			parser_advance(p)
 			return
 		}
 
 		parser_expect(p, .Identifier)
 		key := new(YamlNode)
-		key^ = YamlNode {
-			.Scalar,
-			ScalarNode {
-				p.previous.text,
-				.String
-			}
-		}
+		key^ = YamlNode{.Scalar, ScalarNode{p.previous.text, .String}}
 		parser_expect(p, .Colon)
 
 		if p.current.kind == .Newline {
@@ -60,13 +57,13 @@ parse_mapping :: proc(p: ^Parser, mapping: ^MappingNode) {
 
 		parser_expect(p, .Identifier, .String, .Float, .Integer)
 		value := new(YamlNode)
-		value^ = YamlNode {
-			.Scalar,
-			ScalarNode {
-				p.previous.text,
-				.String
-			}
+		scalar_type := ScalarType.String
+		if p.current.kind == .Integer {
+			scalar_type = ScalarType.Integer
+		} else if p.current.kind == .Float {
+			scalar_type = ScalarType.Float
 		}
+		value^ = YamlNode{.Scalar, ScalarNode{p.previous.text, scalar_type}}
 
 		append(&mapping.pairs, MappingPair{key, value})
 	}
