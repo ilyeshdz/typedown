@@ -74,12 +74,31 @@ parse_value :: proc(p: ^Parser) -> (node: ^YamlNode, err: yaml_error.YamlError) 
 	if p.current.kind == .Indent {
 		err = parser_advance(p)
 		if err != nil { return }
+
+		if p.current.kind == .Bullet {
+			seq := SequenceNode{}
+			err = parse_sequence(p, &seq)
+			if err != nil { return }
+			err = parser_expect(p, .Dedent)
+			if err != nil { return }
+			node^ = YamlNode{.Sequence, seq}
+			return
+		}
+
 		nested_mapping := MappingNode{}
 		err = parse_mapping(p, &nested_mapping)
 		if err != nil { return }
 		err = parser_expect(p, .Dedent)
 		if err != nil { return }
 		node^ = YamlNode{.Mapping, MappingNode{nested_mapping.pairs}}
+		return
+	}
+
+	if p.current.kind == .Bullet {
+		seq := SequenceNode{}
+		err = parse_sequence(p, &seq)
+		if err != nil { return }
+		node^ = YamlNode{.Sequence, seq}
 		return
 	}
 
@@ -93,6 +112,25 @@ parse_value :: proc(p: ^Parser) -> (node: ^YamlNode, err: yaml_error.YamlError) 
 	}
 	node^ = YamlNode{.Scalar, ScalarNode{p.previous.text, scalar_type}}
 	return
+}
+
+parse_sequence :: proc(p: ^Parser, seq: ^SequenceNode) -> (err: yaml_error.YamlError) {
+	for {
+		err = skip_newlines(p)
+		if err != nil { return }
+		if p.current.kind != .Bullet {
+			return
+		}
+
+		err = parser_expect(p, .Bullet)
+		if err != nil { return }
+
+		item: ^YamlNode
+		item, err = parse_value(p)
+		if err != nil { return }
+
+		append(&seq.items, item)
+	}
 }
 
 

@@ -70,6 +70,7 @@ lexer_next_token :: proc(l: ^Lexer) -> (tok: Token, err: yaml_error.YamlError) {
 			return
 		} else if leading_space < previous_indent {
 			pop(&l.indent_stack)
+			l.is_new_line = true
 			tok.kind = .Dedent
 			tok.text = "dedent"
 			return

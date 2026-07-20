@@ -11,6 +11,10 @@ main :: proc() {
 parent_key:
 	child_key:
 		test_it_out: value
+sequence_key:
+	- item1
+	- item2
+	- item3
 ---`
 
 	my_lexer := lexer.lexer_init(source)
@@ -65,7 +69,15 @@ print_yaml_node :: proc(node: ^parser.YamlNode, depth: int = 0) {
         }
     case parser.SequenceNode:
         for item in v.items {
-            print_yaml_node(item, depth)
+            for _ in 0 ..< depth {
+                fmt.print("  ")
+            }
+            if item.kind == .Scalar {
+                fmt.printf("- %s\n", item.value.(parser.ScalarNode).value)
+            } else {
+                fmt.println("-")
+                print_yaml_node(item, depth + 1)
+            }
         }
     }
 }
